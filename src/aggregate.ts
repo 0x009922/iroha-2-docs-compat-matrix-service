@@ -20,7 +20,7 @@ interface CustomFieldData {
   value: string;
 }
 
-export interface Aggregate {
+export interface Matrix {
   included_sdks: MatrixSdkDeclaration[];
   stories: MatrixStory[];
 }
@@ -49,7 +49,7 @@ type MetaMap = Map<number, TestCaseMeta>;
 
 type StoriesMap = Map<string, Map<string, List<ApiTestCaseResultStatus>>>;
 
-export async function getMatrix(api: Api): Promise<Aggregate> {
+export async function getMatrix(api: Api): Promise<Matrix> {
   const allResults = await api.getTestResults();
   const results = filterLastResults(allResults);
   const meta: Map<number, TestCaseMeta> = await getTestCaseData(
@@ -130,7 +130,6 @@ function aggregateStories(
   results: ResultsMap,
   meta: MetaMap,
 ): StoriesMap {
-  console.log({ meta: meta.toJS() });
 
   return meta.reduce((stories, { story, sdk }, test_case_id) => {
     const result = results.get(test_case_id);

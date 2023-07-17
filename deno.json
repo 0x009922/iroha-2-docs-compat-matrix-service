@@ -1,6 +1,8 @@
 {
   "imports": {
     "log": "https://deno.land/std@0.194.0/log/mod.ts",
-    "immutable": "https://deno.land/x/immutable@4.0.0-rc.14-deno/mod.ts"
+    "immutable": "https://deno.land/x/immutable@4.0.0-rc.14-deno/mod.ts",
+    "oak": "https://deno.land/x/oak@v12.6.0/mod.ts",
+    "oak-logger": "https://deno.land/x/oak_logger@1.0.0/mod.ts"
   }
 }

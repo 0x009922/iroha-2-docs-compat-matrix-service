@@ -1,6 +1,7 @@
 import Api from "./api.ts";
 import { getMatrix } from "./aggregate.ts";
 import * as log from "log";
+import * as web from './web.ts'
 
 await log.setup({
   handlers: {
@@ -9,7 +10,7 @@ await log.setup({
     }),
   },
   loggers: {
-    main: {
+    web: {
       level: "DEBUG",
       handlers: ["console"],
     },
@@ -37,6 +38,9 @@ const api = new Api({
   baseUrl: BASE_URL,
 });
 
-const matrix = await getMatrix(api);
-
-console.log(matrix);
+await web.run({
+  port: 8080,
+  provider: {
+    getMatrix: () => getMatrix(api)
+  }
+})
