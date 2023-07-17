@@ -1,7 +1,15 @@
 import Api from "./api.ts";
 import { getMatrix } from "./aggregate.ts";
 import * as log from "log";
-import * as web from './web.ts'
+import * as web from "./web.ts";
+import { get as getConfig } from "./config.ts";
+
+const CONFIG = {
+  apiToken: getConfig("API_TOKEN"),
+  allureBaseUrl: getConfig("ALLURE_BASE_URL"),
+  logLevel: getConfig("LOG_LEVEL", "INFO"),
+  port: Number(getConfig("PORT", "8080")),
+};
 
 await log.setup({
   handlers: {
@@ -11,36 +19,32 @@ await log.setup({
   },
   loggers: {
     web: {
-      level: "DEBUG",
+      level: CONFIG.logLevel,
       handlers: ["console"],
     },
     api: {
-      level: "DEBUG",
+      level: CONFIG.logLevel,
       handlers: ["console"],
     },
     aggregate: {
-      level: "DEBUG",
+      level: CONFIG.logLevel,
       handlers: ["console"],
     },
     default: {
-      level: "DEBUG",
+      level: CONFIG.logLevel,
       handlers: ["console"],
     },
   },
 });
 
-const API_TOKEN = "56e84836-8ac5-426b-8e3f-a9059a494dea";
-
-const BASE_URL = "https://soramitsu.testops.cloud";
-
 const api = new Api({
-  apiToken: API_TOKEN,
-  baseUrl: BASE_URL,
+  apiToken: CONFIG.apiToken,
+  baseUrl: CONFIG.allureBaseUrl,
 });
 
 await web.run({
-  port: 8080,
+  port: CONFIG.port,
   provider: {
-    getMatrix: () => getMatrix(api)
-  }
-})
+    getMatrix: () => getMatrix(api),
+  },
+});

@@ -1,5 +1,7 @@
 import { getLogger } from "log";
 
+const ENABLE_CACHE = false;
+
 const logger = () => getLogger("api");
 
 export interface Config {
@@ -101,13 +103,15 @@ export default class Api {
 }
 
 async function cacheData<T>(file: string, fn: () => Promise<T>): Promise<T> {
+  if (!ENABLE_CACHE) return fn()
+
   try {
     const content = await Deno.readTextFile(file).then((x) => JSON.parse(x));
     logger().debug({ msg: "Loaded cached", file });
     return content;
   } catch {
     const data = await fn();
-    Deno.writeTextFile(file, JSON.stringify(data));
+    await Deno.writeTextFile(file, JSON.stringify(data));
     logger().debug({ msg: "Written cache", file });
     return data;
   }

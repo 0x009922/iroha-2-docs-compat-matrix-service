@@ -130,7 +130,6 @@ function aggregateStories(
   results: ResultsMap,
   meta: MetaMap,
 ): StoriesMap {
-
   return meta.reduce((stories, { story, sdk }, test_case_id) => {
     const result = results.get(test_case_id);
     if (!result) {
