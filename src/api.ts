@@ -103,7 +103,7 @@ export default class Api {
 }
 
 async function cacheData<T>(file: string, fn: () => Promise<T>): Promise<T> {
-  if (!ENABLE_CACHE) return fn()
+  if (!ENABLE_CACHE) return fn();
 
   try {
     const content = await Deno.readTextFile(file).then((x) => JSON.parse(x));

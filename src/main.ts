@@ -3,6 +3,8 @@ import { getMatrix } from "./aggregate.ts";
 import * as log from "log";
 import * as web from "./web.ts";
 import { get as getConfig } from "./config.ts";
+import Agent from "./agent.ts";
+import { ms } from "https://deno.land/x/ms@v0.1.0/ms.ts";
 
 const CONFIG = {
   apiToken: getConfig("API_TOKEN"),
@@ -42,9 +44,22 @@ const api = new Api({
   baseUrl: CONFIG.allureBaseUrl,
 });
 
+const agent = new Agent(async () => {
+  try {
+    log.info("Getting matrix");
+    const data = await getMatrix(api);
+    log.info("Getting matrix complete");
+    return data;
+  } catch (err) {
+    log.error("Getting matrix failed");
+    console.error(err);
+    throw err;
+  }
+}, ms("2h"));
+
 await web.run({
   port: CONFIG.port,
   provider: {
-    getMatrix: () => getMatrix(api),
+    getMatrix: () => agent.get(),
   },
 });
