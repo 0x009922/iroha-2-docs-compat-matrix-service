@@ -7,7 +7,7 @@ import Agent from "./agent.ts";
 import { ms } from "https://deno.land/x/ms@v0.1.0/ms.ts";
 
 const CONFIG = {
-  apiToken: getConfig("API_TOKEN"),
+  apiToken: getConfig("ALLURE_API_TOKEN"),
   allureBaseUrl: getConfig("ALLURE_BASE_URL"),
   logLevel: getConfig("LOG_LEVEL", "INFO"),
   port: Number(getConfig("PORT", "8080")),
