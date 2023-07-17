@@ -4,12 +4,11 @@ import Api, {
   ApiTestCaseResultStatus,
 } from "./api.ts";
 
-import {
-  List,
-  Map,
-  Seq,
-  Set,
-} from "https://deno.land/x/immutable@4.0.0-rc.14-deno/mod.ts";
+import { List, Map, Seq, Set } from "immutable";
+
+import { getLogger } from "log";
+
+const logger = () => getLogger("aggregate");
 
 const CUSTOM_FIELD_SDK = "SDK";
 
@@ -21,7 +20,7 @@ interface CustomFieldData {
   value: string;
 }
 
-export interface Matrix {
+export interface Aggregate {
   included_sdks: MatrixSdkDeclaration[];
   stories: MatrixStory[];
 }
@@ -50,7 +49,7 @@ type MetaMap = Map<number, TestCaseMeta>;
 
 type StoriesMap = Map<string, Map<string, List<ApiTestCaseResultStatus>>>;
 
-export async function getMatrix(api: Api): Promise<Matrix> {
+export async function getMatrix(api: Api): Promise<Aggregate> {
   const allResults = await api.getTestResults();
   const results = filterLastResults(allResults);
   const meta: Map<number, TestCaseMeta> = await getTestCaseData(
@@ -77,23 +76,42 @@ async function getTestCaseData(
   testCaseIdList: List<number>,
 ): Promise<MetaMap> {
   const entries = await Promise.all(
-    testCaseIdList.map(async (id): Promise<[number, TestCaseMeta]> => {
+    testCaseIdList.map(async (id): Promise<[number, TestCaseMeta][]> => {
       const custom_fields = await api.getTestCaseCustomFields(id);
-      const map = custom_fields_to_map(custom_fields);
-      return [id, {
-        sdk: getMapForce(map, CUSTOM_FIELD_SDK).value,
-        story: getMapForce(map, CUSTOM_FIELD_STORY).value,
-      }];
+      const map = customFieldsToMap(custom_fields);
+
+      if (!map.has(CUSTOM_FIELD_SDK)) {
+        logger().warning({
+          msg: `Missing "${CUSTOM_FIELD_SDK}" custom field for test case`,
+          id,
+        });
+        return [];
+      }
+      const sdk = map.get(CUSTOM_FIELD_SDK)!.value;
+
+      if (!map.has(CUSTOM_FIELD_STORY)) {
+        logger().warning({
+          msg: `Missing "${CUSTOM_FIELD_STORY}" custom field for test case`,
+          id,
+        });
+        return [];
+      }
+      const story = map.get(CUSTOM_FIELD_STORY)!.value;
+
+      return [[id, {
+        sdk,
+        story,
+      }]];
     }),
   );
 
-  return Map(entries);
+  return Map(List(entries).flatMap((x) => x));
 }
 
 /**
  * @returns a map from custom field name to its id, name and value
  */
-function custom_fields_to_map(
+function customFieldsToMap(
   input: ApiTestCaseCustomFieldData[],
 ): Map<string, CustomFieldData> {
   const entries = Seq(input)
@@ -108,15 +126,12 @@ function custom_fields_to_map(
   return Map(entries);
 }
 
-function getMapForce<K, V>(map: Map<K, V>, key: K): V {
-  if (!map.has(key)) throw new Error(`Map has no key "${String(key)}"`);
-  return map.get(key)!;
-}
-
 function aggregateStories(
   results: ResultsMap,
   meta: MetaMap,
 ): StoriesMap {
+  console.log({ meta: meta.toJS() });
+
   return meta.reduce((stories, { story, sdk }, test_case_id) => {
     const result = results.get(test_case_id);
     if (!result) {

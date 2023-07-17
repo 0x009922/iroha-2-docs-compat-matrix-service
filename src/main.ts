@@ -1,5 +1,32 @@
 import Api from "./api.ts";
-import { getMatrix } from "./matrix.ts";
+import { getMatrix } from "./aggregate.ts";
+import * as log from "log";
+
+await log.setup({
+  handlers: {
+    console: new log.handlers.ConsoleHandler("DEBUG", {
+      formatter: `{datetime} [{loggerName}] {levelName} {msg}`,
+    }),
+  },
+  loggers: {
+    main: {
+      level: "DEBUG",
+      handlers: ["console"],
+    },
+    api: {
+      level: "DEBUG",
+      handlers: ["console"],
+    },
+    aggregate: {
+      level: "DEBUG",
+      handlers: ["console"],
+    },
+    default: {
+      level: "DEBUG",
+      handlers: ["console"],
+    },
+  },
+});
 
 const API_TOKEN = "56e84836-8ac5-426b-8e3f-a9059a494dea";
 

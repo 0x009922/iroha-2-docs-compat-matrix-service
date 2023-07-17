@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "log": "https://deno.land/std@0.194.0/log/mod.ts",
+    "immutable": "https://deno.land/x/immutable@4.0.0-rc.14-deno/mod.ts"
+  }
+}

@@ -1,3 +1,7 @@
+import { getLogger } from "log";
+
+const logger = () => getLogger("api");
+
 export interface Config {
   apiToken: string;
   baseUrl: string;
@@ -47,29 +51,45 @@ export default class Api {
       content: ApiTestCaseResult[];
     }
 
-    return fetch(
-      `${this.baseUrl}/api/rs/testresult/__search?` +
+    return cacheData("cache/test-results.json", () => {
+      const URL = `${this.baseUrl}/api/rs/testresult/__search?` +
         new URLSearchParams({
           projectId: "1",
           rql: `not cf["SDK"] is null`,
           page: "0",
-          size: "999_999",
+          size: "999999",
           sort: "created_date",
-        }),
-      {
+        });
+
+      logger().debug({ msg: "Request", URL });
+
+      return fetch(URL, {
         headers: this.commonHeaders(),
-      },
-    )
-      .then((x) => x.json() as Promise<Response>)
-      .then((x) => x.content);
+      })
+        .then((x) => x.json() as Promise<Response>)
+        .then((x) => x.content)
+        .then((result) => {
+          logger().debug({ msg: "Found test cases", result });
+          return result;
+        });
+    });
   }
 
   public getTestCaseCustomFields(
     id: number,
   ): Promise<ApiTestCaseCustomFieldData[]> {
-    return fetch(`${this.baseUrl}/api/rs/testcase/${id}/cfv`, {
-      headers: this.commonHeaders(),
-    }).then((x) => x.json());
+    return cacheData(`cache/test-case-${id}.json`, () => {
+      logger().debug({ msg: "Loading test case custom fields", id });
+
+      return fetch(`${this.baseUrl}/api/rs/testcase/${id}/cfv`, {
+        headers: this.commonHeaders(),
+      })
+        .then((x) => x.json())
+        .then((x) => {
+          logger().debug({ msg: "Test case custom fields", id, data: x });
+          return x;
+        });
+    });
   }
 
   private commonHeaders() {
@@ -77,5 +97,18 @@ export default class Api {
       Authorization: `Api-Token ${this.apiToken}`,
       "Content-Type": "application/json; charset=utf-8",
     });
+  }
+}
+
+async function cacheData<T>(file: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    const content = await Deno.readTextFile(file).then((x) => JSON.parse(x));
+    logger().debug({ msg: "Loaded cached", file });
+    return content;
+  } catch {
+    const data = await fn();
+    Deno.writeTextFile(file, JSON.stringify(data));
+    logger().debug({ msg: "Written cache", file });
+    return data;
   }
 }
