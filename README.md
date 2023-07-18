@@ -1,6 +1,7 @@
 # Compatibility Matrix collector
 
-For the [documentation site of Iroha 2](https://github.com/hyperledger/iroha-2-docs).
+For the
+[documentation site of Iroha 2](https://github.com/hyperledger/iroha-2-docs).
 
 ## Prepare
 
@@ -22,7 +23,8 @@ deno run --allow-read --allow-env --allow-net src/main.ts
 
 ## Use
 
-Use the following request to get the parsed compatibility matrix (port depends on the configuration):
+Use the following request to get the parsed compatibility matrix (port depends
+on the configuration):
 
 ```http request
 GET http://localhost:8080/compat-matrix

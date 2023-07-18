@@ -48,7 +48,12 @@ export default class Api {
     return this.#config.apiToken;
   }
 
-  public getTestResults(): Promise<ApiTestCaseResult[]> {
+  /**
+   * Returns test results after a specified date, sorted by creation date (desc)
+   */
+  public getTestResults(params: {
+    createdDateAfter: Date;
+  }): Promise<ApiTestCaseResult[]> {
     interface Response {
       content: ApiTestCaseResult[];
     }
@@ -57,10 +62,11 @@ export default class Api {
       const URL = `${this.baseUrl}/api/rs/testresult/__search?` +
         new URLSearchParams({
           projectId: "1",
-          rql: `not cf["SDK"] is null`,
+          rql:
+            `not cf["SDK"] is null and createdDate > ${params.createdDateAfter.getTime()}`,
           page: "0",
           size: "999999",
-          sort: "created_date",
+          sort: "created_date,DESC",
         });
 
       logger().debug({ msg: "Request", URL });

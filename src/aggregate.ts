@@ -50,8 +50,10 @@ type MetaMap = Map<number, TestCaseMeta>;
 type StoriesMap = Map<string, Map<string, List<ApiTestCaseResultStatus>>>;
 
 export async function getMatrix(api: Api): Promise<Matrix> {
-  const allResults = await api.getTestResults();
-  const results = filterLastResults(allResults);
+  const createdDateAfter = new Date();
+  createdDateAfter.setFullYear(createdDateAfter.getFullYear() - 1);
+  const allResults = await api.getTestResults({ createdDateAfter });
+  const results = pickResults(allResults);
   const meta: Map<number, TestCaseMeta> = await getTestCaseData(
     api,
     results.valueSeq().map((x) => x.testCaseId).toList(),
@@ -162,15 +164,16 @@ function buildStoriesMatrix(
 }
 
 /**
+ * @param input assumed to be sorted by created date (desc)
  * @returns a map from test case id to test case
  */
-function filterLastResults<T extends ApiTestCaseResult>(
+function pickResults<T extends ApiTestCaseResult>(
   input: T[],
 ): Map<number, T> {
   return Seq(input)
-    .sortBy((x) => x.id)
-    .reverse()
-    .reduce((map, item) => {
-      return map.has(item.testCaseId) ? map : map.set(item.testCaseId, item);
-    }, Map<number, T>());
+    .reduce(
+      (map, item) =>
+        map.has(item.testCaseId) ? map : map.set(item.testCaseId, item),
+      Map<number, T>(),
+    );
 }
