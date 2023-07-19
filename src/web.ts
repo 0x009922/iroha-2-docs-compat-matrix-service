@@ -1,8 +1,5 @@
-import { Application, Router } from "oak";
+import { getLogger, oak, oakLogger } from "../deps.ts";
 import { Matrix } from "./aggregate.ts";
-import { getLogger } from "log";
-
-import oakLogger from "oak-logger";
 
 const logger = () => getLogger("web");
 
@@ -14,14 +11,14 @@ export async function run(params: {
   port: number;
   provider: MatrixProvider;
 }) {
-  const router = new Router();
+  const router = new oak.Router();
 
   router
     .get("/compat-matrix", async (ctx) => {
       ctx.response.body = await params.provider.getMatrix();
     });
 
-  const app = new Application();
+  const app = new oak.Application();
 
   // CORS
   app.use((ctx, next) => {

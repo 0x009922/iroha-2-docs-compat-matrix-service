@@ -3,10 +3,7 @@ import Api, {
   ApiTestCaseResult,
   ApiTestCaseResultStatus,
 } from "./api.ts";
-
-import { List, Map, Seq, Set } from "immutable";
-
-import { getLogger } from "log";
+import { getLogger, List, Map, Seq, Set } from "../deps.ts";
 
 const logger = () => getLogger("aggregate");
 

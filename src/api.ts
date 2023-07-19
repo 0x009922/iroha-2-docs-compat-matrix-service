@@ -1,4 +1,4 @@
-import { getLogger } from "log";
+import { getLogger } from "../deps.ts";
 
 const ENABLE_CACHE = false;
 

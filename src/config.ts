@@ -1,10 +1,11 @@
-import "https://deno.land/std@0.194.0/dotenv/load.ts";
-import { MissingEnvVarsError } from "https://deno.land/std@0.194.0/dotenv/mod.ts";
+import { dotenvLoad } from "../deps.ts";
+
+await dotenvLoad();
 
 export function get(env: string, fallback?: string): string {
   const value = Deno.env.get(env) ?? fallback;
   if (!value) {
-    throw new MissingEnvVarsError(`Missing required env vars:`, [env]);
+    throw new Error(`Missing required ENV var: ${env}`);
   }
   return value;
 }
