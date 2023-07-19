@@ -40,3 +40,7 @@ Either in ENV or in `.env`:
 - **`LOG_LEVEL`** (optional, default: `INFO`): _no comments_
 
 See also: [`.env.example`](./.env.example)
+
+## Docker deployment
+
+The project has [`Dockerfile`](./Dockerfile). Default exposed port is `4000`.
