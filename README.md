@@ -44,4 +44,9 @@ See also: [`.env.example`](./.env.example)
 ## Docker deployment
 
 The project has [`Dockerfile`](./Dockerfile). Default exposed port is `4000`.
- 
+
+## Update deno.lock
+
+```bash
+deno cache --lock=deno.lock deps.ts
+```
