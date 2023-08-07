@@ -3,7 +3,7 @@ import Api, {
   ApiTestCaseResult,
   ApiTestCaseResultStatus,
 } from "./api.ts";
-import { getLogger } from "../deps.ts";
+import { getLogger, sortBy } from "../deps.ts";
 
 const logger = () => getLogger("aggregate");
 
@@ -68,11 +68,12 @@ export async function getMatrix(api: Api): Promise<Matrix> {
   );
   const sdks = [...sdksSet];
   const storiesMatrix = buildStoriesMatrix(stories, sdks);
+  const storiesMatrixSorted = sortBy(storiesMatrix, (x) => x.name);
   const sdksWithName = sdks.map((x) => ({ name: x }));
 
   return {
     included_sdks: sdksWithName,
-    stories: storiesMatrix,
+    stories: storiesMatrixSorted,
   };
 }
 
