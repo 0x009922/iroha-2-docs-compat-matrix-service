@@ -48,6 +48,7 @@ The project has [`Dockerfile`](./Dockerfile). Default exposed port is `4000`.
 ## Update deno.lock
 
 If needed remove deno.lock first
+
 ```bash
 deno cache --lock=deno.lock deps.ts
 ```
