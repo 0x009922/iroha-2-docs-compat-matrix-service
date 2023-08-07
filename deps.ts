@@ -1,4 +1,3 @@
-export { List, Map, Seq, Set } from "https://esm.sh/immutable@4.3.1";
 export * as log from "https://deno.land/std@0.194.0/log/mod.ts";
 export { getLogger } from "https://deno.land/std@0.194.0/log/mod.ts";
 export { ms } from "https://deno.land/x/ms@v0.1.0/ms.ts";

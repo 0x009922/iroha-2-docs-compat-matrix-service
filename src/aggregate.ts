@@ -3,7 +3,7 @@ import Api, {
   ApiTestCaseResult,
   ApiTestCaseResultStatus,
 } from "./api.ts";
-import { getLogger, List, Map, Seq, Set } from "../deps.ts";
+import { getLogger } from "../deps.ts";
 
 const logger = () => getLogger("aggregate");
 
@@ -44,7 +44,7 @@ type ResultsMap = Map<number, ApiTestCaseResult>;
 
 type MetaMap = Map<number, TestCaseMeta>;
 
-type StoriesMap = Map<string, Map<string, List<ApiTestCaseResultStatus>>>;
+type StoriesMap = Map<string, Map<string, Array<ApiTestCaseResultStatus>>>;
 
 export async function getMatrix(api: Api): Promise<Matrix> {
   const createdDateAfter = new Date();
@@ -53,16 +53,22 @@ export async function getMatrix(api: Api): Promise<Matrix> {
   const results = pickResults(allResults);
   const meta: Map<number, TestCaseMeta> = await getTestCaseData(
     api,
-    results.valueSeq().map((x) => x.testCaseId).toList(),
+    [...results.values()].map((x) => x.testCaseId),
   );
-  const stories: Map<string, Map<string, List<ApiTestCaseResultStatus>>> =
+  const stories: Map<string, Map<string, Array<ApiTestCaseResultStatus>>> =
     aggregateStories(results, meta);
-  const sdks: List<string> = stories.valueSeq().reduce(
-    (set, sdk_map) => set.union(sdk_map.keySeq()),
-    Set<string>(),
-  ).toList();
+  const sdksSet: Set<string> = [...stories.values()].reduce(
+    (acc, sdkMap) => {
+      for (const sdk of sdkMap.keys()) {
+        acc.add(sdk);
+      }
+      return acc;
+    },
+    new Set<string>(),
+  );
+  const sdks = [...sdksSet];
   const storiesMatrix = buildStoriesMatrix(stories, sdks);
-  const sdksWithName = sdks.map((x) => ({ name: x })).toArray();
+  const sdksWithName = sdks.map((x) => ({ name: x }));
 
   return {
     included_sdks: sdksWithName,
@@ -72,7 +78,7 @@ export async function getMatrix(api: Api): Promise<Matrix> {
 
 async function getTestCaseData(
   api: Api,
-  testCaseIdList: List<number>,
+  testCaseIdList: number[],
 ): Promise<MetaMap> {
   const entries = await Promise.all(
     testCaseIdList.map(async (id): Promise<[number, TestCaseMeta][]> => {
@@ -102,9 +108,9 @@ async function getTestCaseData(
         story,
       }]];
     }),
-  );
+  ).then((x) => x.flat());
 
-  return Map(List(entries).flatMap((x) => x));
+  return new Map(entries);
 }
 
 /**
@@ -113,39 +119,64 @@ async function getTestCaseData(
 function customFieldsToMap(
   input: ApiTestCaseCustomFieldData[],
 ): Map<string, CustomFieldData> {
-  const entries = Seq(input)
+  const entries = input
     .map((x) => ({
       id: x.customField.id,
       name: x.customField.name,
       value: x.name,
     }))
-    .map((x): [string, CustomFieldData] => [x.name, x])
-    .toList();
+    .map((x): [string, CustomFieldData] => [x.name, x]);
 
-  return Map(entries);
+  return new Map(entries);
 }
 
 function aggregateStories(
   results: ResultsMap,
   meta: MetaMap,
 ): StoriesMap {
-  return meta.reduce((stories, { story, sdk }, test_case_id) => {
-    const result = results.get(test_case_id);
-    if (!result) {
-      console.error(results.toJS(), meta.toJS());
-      throw new Error(`Could not find result for test case ${test_case_id}`);
-    }
-    return stories.mergeDeep(
-      Map([[story, Map([[sdk, List([result.status])]])]]),
-    );
-  }, Map() as StoriesMap);
+  return [...meta.entries()].reduce<StoriesMap>(
+    (acc, [test_case_id, { story, sdk }]) => {
+      const result = results.get(test_case_id);
+      if (!result) {
+        console.error(results, meta);
+        throw new Error(`Could not find result for test case ${test_case_id}`);
+      }
+
+      // merge
+      return mapUpdate(
+        acc,
+        story,
+        () => new Map(),
+        (storyMap) =>
+          mapUpdate(storyMap, sdk, () => [], (list) => {
+            list.push(result.status);
+            return list;
+          }),
+      );
+    },
+    new Map(),
+  );
+}
+
+function mapUpdate<K, V>(
+  map: Map<K, V>,
+  key: K,
+  defaultValue: () => V,
+  update: (value: V) => V,
+): Map<K, V> {
+  if (map.has(key)) {
+    map.set(key, update(map.get(key)!));
+  } else {
+    map.set(key, update(defaultValue()));
+  }
+  return map;
 }
 
 function buildStoriesMatrix(
   stories: StoriesMap,
-  sdks: List<string>,
+  sdks: string[],
 ): MatrixStory[] {
-  return stories.entrySeq().map(([story, sdkMap]): MatrixStory => {
+  return [...stories.entries()].map(([story, sdkMap]): MatrixStory => {
     const results = sdks
       .map((sdk): MatrixStoryResult["status"] => {
         const statuses = sdkMap.get(sdk);
@@ -154,10 +185,9 @@ function buildStoriesMatrix(
         }
         return statuses.every((x) => x === "passed") ? "ok" : "failed";
       })
-      .map((status) => ({ status }))
-      .toArray();
+      .map((status) => ({ status }));
     return { name: story, results };
-  }).toArray();
+  });
 }
 
 /**
@@ -167,10 +197,10 @@ function buildStoriesMatrix(
 function pickResults<T extends ApiTestCaseResult>(
   input: T[],
 ): Map<number, T> {
-  return Seq(input)
+  return input
     .reduce(
       (map, item) =>
         map.has(item.testCaseId) ? map : map.set(item.testCaseId, item),
-      Map<number, T>(),
+      new Map<number, T>(),
     );
 }

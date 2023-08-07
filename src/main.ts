@@ -20,7 +20,7 @@ const CONFIG = {
 const DEFAULT_LOGGER_CONFIG: log.LoggerConfig = {
   level: CONFIG.logLevel,
   handlers: ["console"],
-}
+};
 
 await log.setup({
   handlers: {
