@@ -83,6 +83,7 @@ async function getTestCaseData(
 ): Promise<MetaMap> {
   const entries = await Promise.all(
     testCaseIdList.map(async (id): Promise<[number, TestCaseMeta][]> => {
+		await delay(50000);
       const custom_fields = await api.getTestCaseCustomFields(id);
       const map = customFieldsToMap(custom_fields);
 
@@ -120,6 +121,12 @@ async function getTestCaseData(
 function customFieldsToMap(
   input: ApiTestCaseCustomFieldData[],
 ): Map<string, CustomFieldData> {
+  if (!input) {
+    logger().warning({
+          msg: `Missing test!`
+        })
+    return new Map(null);
+  } else {
   const entries = input
     .map((x) => ({
       id: x.customField.id,
@@ -127,8 +134,13 @@ function customFieldsToMap(
       value: x.name,
     }))
     .map((x): [string, CustomFieldData] => [x.name, x]);
+    return new Map(entries);
+}
 
-  return new Map(entries);
+}
+
+function delay(ms: number) {
+    return new Promise( resolve => setTimeout(resolve, ms) );
 }
 
 function aggregateStories(
