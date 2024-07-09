@@ -83,7 +83,7 @@ async function getTestCaseData(
 ): Promise<MetaMap> {
   const entries = await Promise.all(
     testCaseIdList.map(async (id): Promise<[number, TestCaseMeta][]> => {
-		await delay(500000);
+		await delay(50000);
       const custom_fields = await api.getTestCaseCustomFields(id);
       const map = customFieldsToMap(custom_fields);
 
