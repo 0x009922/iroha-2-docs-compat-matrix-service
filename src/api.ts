@@ -68,9 +68,7 @@ export default class Api {
           size: "999999",
           sort: "created_date,DESC",
         });
-
-      logger().debug({ msg: "Request", URL });
-
+      logger().debug({ msg: "Request", URL }); 
       return fetch(URL, {
         headers: this.commonHeaders(),
       })
@@ -83,20 +81,34 @@ export default class Api {
     });
   }
 
-  public getTestCaseCustomFields(
+  public async getTestCaseCustomFields(
     id: number,
   ): Promise<ApiTestCaseCustomFieldData[]> {
-    return cacheData(`cache/test-case-${id}.json`, () => {
-      logger().debug({ msg: "Loading test case custom fields", id });
-
+    return cacheData(`cache/test-case-${id}.json`, () => {		
+     logger().debug({ msg: "Loading test case custom fields", id });
       return fetch(`${this.baseUrl}/api/rs/testcase/${id}/cfv`, {
         headers: this.commonHeaders(),
       })
-        .then((x) => x.json())
-        .then((x) => {
-          logger().debug({ msg: "Test case custom fields", id, data: x });
-          return x;
-        });
+       .then ((x) => {
+          if (x.status !== 200) {
+          logger().error({ msg: "Failed to load test case custom fields", id, status: x.status });
+        }
+          return x.text();
+        })
+        .then((text) => {
+        try {
+          const json = JSON.parse(text); // Attempt to parse the text as JSON
+          logger().debug({ msg: "Test case custom fields", id, data: json });
+          return json;
+        } catch (error) {
+          logger().error({ msg: "Invalid JSON response", id, error: error.message });
+          return;
+        }
+      })
+       .then((x) => {
+        logger().debug({ msg: "Test case custom fields", id, data: x });
+         return x;
+       });
     });
   }
 
