@@ -83,9 +83,12 @@ async function getTestCaseData(
 ): Promise<MetaMap> {
   const entries = await Promise.all(
     testCaseIdList.map(async (id): Promise<[number, TestCaseMeta][]> => {
-		await delay(50000);
-      const custom_fields = await api.getTestCaseCustomFields(id);
-      const map = customFieldsToMap(custom_fields);
+      const { deleted, customFields } = await api.getTestCaseOverview(id);
+      if (deleted) {
+        logger().debug({ msg: "ignore deleted test case", id });
+        return [];
+      }
+      const map = customFieldsToMap(customFields);
 
       if (!map.has(CUSTOM_FIELD_SDK)) {
         logger().warning({
@@ -121,12 +124,6 @@ async function getTestCaseData(
 function customFieldsToMap(
   input: ApiTestCaseCustomFieldData[],
 ): Map<string, CustomFieldData> {
-  if (!input) {
-    logger().warning({
-          msg: `Missing test!`
-        })
-    return new Map(null);
-  } else {
   const entries = input
     .map((x) => ({
       id: x.customField.id,
@@ -134,13 +131,7 @@ function customFieldsToMap(
       value: x.name,
     }))
     .map((x): [string, CustomFieldData] => [x.name, x]);
-    return new Map(entries);
-}
-
-}
-
-function delay(ms: number) {
-    return new Promise( resolve => setTimeout(resolve, ms) );
+  return new Map(entries);
 }
 
 function aggregateStories(

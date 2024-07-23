@@ -1,9 +1,8 @@
 import Api from "./api.ts";
-import { getMatrix } from "./aggregate.ts";
+import { getMatrix, Matrix } from "./aggregate.ts";
 import * as web from "./web.ts";
 import { get as getConfig } from "./config.ts";
-import Agent from "./agent.ts";
-import { log, match, ms, P } from "../deps.ts";
+import { log, match, P } from "../deps.ts";
 
 const CONFIG = {
   apiToken: getConfig("ALLURE_API_TOKEN"),
@@ -41,22 +40,36 @@ const api = new Api({
   baseUrl: CONFIG.allureBaseUrl,
 });
 
-const agent = new Agent(async () => {
-  try {
-    log.info("Getting matrix");
-    const data = await getMatrix(api);
-    log.info("Getting matrix complete");
-    return data;
-  } catch (err) {
-    log.error("Getting matrix failed");
-    console.error(err);
-    throw err;
+// 24 hours
+const CACHE_TTL = 60_000 * 24;
+
+class State {
+  #data: null | { matrix: Matrix; lastUpdated: Date } = null;
+  #promise: null | Promise<Matrix> = null;
+
+  getMatrix(): Promise<Matrix> {
+    if (this.#promise) return this.#promise;
+    const now = Date.now();
+    if (!this.#data || this.#data.lastUpdated.getTime() + CACHE_TTL < now) {
+      log.debug("No data/cache is stale, reloading matrix");
+      this.#promise = getMatrix(api).then((matrix) => {
+        this.#data = { matrix, lastUpdated: new Date() };
+        return matrix;
+      }).finally(() => {
+        this.#promise = null;
+      });
+      return this.#promise;
+    }
+    log.debug("Using cached data");
+    return Promise.resolve(this.#data.matrix);
   }
-}, ms("2h") as number);
+}
+
+const state = new State();
 
 await web.run({
   port: CONFIG.port,
   provider: {
-    getMatrix: () => agent.get(),
+    getMatrix: () => state.getMatrix(),
   },
 });
