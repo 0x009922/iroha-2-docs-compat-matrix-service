@@ -1,0 +1,157 @@
+# Allure, Compat Matrix
+
+```elixir
+Mix.install([
+  {:req, "~> 0.5.4"},
+  {:kino, "~> 0.13.2"}
+])
+```
+
+## Buildin the matrix
+
+Make sure to define `LB_ALLURE_API_TOKEN` in the environment.
+
+```elixir
+api_url = "https://soramitsu.testops.cloud"
+api_token = System.get_env("LB_ALLURE_API_TOKEN")
+
+create_date_after =
+  Kino.Input.utc_datetime("create date after (UTC)",
+    default: DateTime.utc_now() |> DateTime.add(-365, :day)
+  )
+```
+
+```elixir
+create_date_after =
+  Kino.Input.read(create_date_after) |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix()
+
+headers = %{"Authorization" => "Api-Token #{api_token}"}
+
+response =
+  Req.get!("#{api_url}/api/rs/testresult/__search?",
+    params: [
+      projectId: 1,
+      rql: "not cf[\"SDK\"] is null and createdDate > #{create_date_after}",
+      page: 0,
+      size: 999_999,
+      sort: "created_date,DESC"
+    ],
+    headers: headers
+  )
+
+
+%{"content" => content} = response.body
+```
+
+```elixir
+require Logger
+
+meta =
+  content
+  |> Stream.map(& &1["testCaseId"])
+  |> Enum.into(MapSet.new())
+  |> Task.async_stream(fn id ->
+    response = Req.get!("#{api_url}/api/rs/testcase/#{id}/overview", headers: headers)
+    Logger.debug("Loaded overview of #{id}")
+
+    case response.body do
+      %{"deleted" => true} ->
+        Logger.debug("Test case #{id} is deleted, ignoring")
+        nil
+
+      %{"customFields" => custom_fields} ->
+        custom_fields =
+          custom_fields
+          |> Enum.map(fn %{"customField" => %{"id" => id, "name" => name}, "name" => value} ->
+            {name, %{id: id, value: value}}
+          end)
+          |> Enum.into(%{})
+
+        case custom_fields do
+          %{"SDK" => sdk, "Story" => story} ->
+            {id, %{sdk: sdk, story: story}}
+
+          bad ->
+            Logger.warning(
+              "test case #{id} doesn't have SDK or Story custom fields: #{inspect(bad)}"
+            )
+
+            nil
+        end
+
+      unknown ->
+        Logger.warning("response not recognised: #{inspect(unknown)}")
+        nil
+    end
+  end)
+  |> Stream.map(fn {:ok, data} -> data end)
+  |> Stream.reject(&(&1 == nil))
+  |> Enum.into(%{})
+```
+
+```elixir
+results_filtered =
+  content
+  |> Stream.map(&{&1["testCaseId"], &1})
+  |> Enum.dedup_by(&elem(&1, 0))
+  |> Enum.into(%{})
+```
+
+```elixir
+stories =
+  meta
+  |> Map.to_list()
+  |> Enum.reduce(%{}, fn {test_case_id, %{story: story, sdk: sdk}}, acc ->
+    result = Map.fetch!(results_filtered, test_case_id)
+
+    Map.update(acc, story.value, %{}, fn story_map ->
+      Map.update(story_map, sdk.value, [], fn list -> [result["status"] | list] end)
+    end)
+  end)
+```
+
+```elixir
+sdks =
+  stories
+  |> Map.values()
+  |> Stream.flat_map(&Map.keys/1)
+  |> Enum.into(MapSet.new())
+  |> MapSet.to_list()
+```
+
+```elixir
+matrix =
+  stories
+  |> Enum.map(fn {story, story_sdk_results} ->
+    results =
+      sdks
+      |> Stream.map(&Map.get(story_sdk_results, &1))
+      |> Enum.map(fn
+        nil -> :no_data
+        statuses -> if Enum.all?(statuses, &(&1 == "passed")), do: :ok, else: :failed
+      end)
+
+    %{name: story, results: results}
+  end)
+
+%{
+  sdks: sdks,
+  stories: matrix
+}
+```
+
+```elixir
+matrix
+|> Enum.map(fn %{name: name, results: results} ->
+  %{name: name}
+  |> Map.merge(
+    sdks
+    |> Enum.with_index()
+    |> Enum.map(fn {x, i} -> {x, Enum.at(results, i)} end)
+    |> Enum.into(%{})
+  )
+end)
+|> Kino.DataTable.new()
+```
+
+<!-- livebook:{"offset":3381,"stamp":{"token":"XCP.OpqmL3akQyxgIZygWtwE4L8hmcjPKzOmpfOtVjl_F9_oKhNADGXwbK_2rzudeW54BEIgGjhSrvxvZRazLoe6dDF7VdLPDrt1jLGQQywC44HE8bRkQYc2_20y5g","version":2}} -->
