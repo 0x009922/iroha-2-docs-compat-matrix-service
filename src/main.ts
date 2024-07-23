@@ -41,7 +41,7 @@ const api = new Api({
 });
 
 // 24 hours
-const CACHE_TTL = 60_000 * 24;
+const CACHE_TTL = 60_000 * 60 * 24;
 
 class State {
   #data: null | { matrix: Matrix; lastUpdated: Date } = null;
