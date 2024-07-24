@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-1.35.2
+FROM denoland/deno:alpine-1.45.3
 WORKDIR /app
 COPY deps.ts deno.lock ./
 RUN deno cache --lock=deno.lock deps.ts

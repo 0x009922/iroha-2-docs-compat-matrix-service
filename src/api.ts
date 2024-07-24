@@ -1,6 +1,4 @@
-import { getLogger } from "../deps.ts";
-
-const ENABLE_CACHE = false;
+import { getLogger, retry } from "../deps.ts";
 
 const logger = () => getLogger("api");
 
@@ -33,6 +31,12 @@ export interface ApiTestCaseCustomFieldData {
 
 export type ApiCustomFieldKind = "Story" | "Permission" | "SDK Test Id" | "SDK";
 
+export interface ApiTestCaseOverview {
+  deleted: boolean;
+  customFields: ApiTestCaseCustomFieldData[];
+  // there are other fields too, ignore
+}
+
 export default class Api {
   #config: Config;
 
@@ -58,58 +62,64 @@ export default class Api {
       content: ApiTestCaseResult[];
     }
 
-    return cacheData("cache/test-results.json", () => {
-      const URL = `${this.baseUrl}/api/rs/testresult/__search?` +
-        new URLSearchParams({
-          projectId: "1",
-          rql:
-            `not cf["SDK"] is null and createdDate > ${params.createdDateAfter.getTime()}`,
-          page: "0",
-          size: "999999",
-          sort: "created_date,DESC",
-        });
-      logger().debug({ msg: "Request", URL }); 
-      return fetch(URL, {
-        headers: this.commonHeaders(),
-      })
-        .then((x) => x.json() as Promise<Response>)
-        .then((x) => x.content)
-        .then((result) => {
-          logger().debug({ msg: "Found test cases", result });
-          return result;
-        });
-    });
+    const URL = `${this.baseUrl}/api/rs/testresult/__search?` +
+      new URLSearchParams({
+        projectId: "1",
+        rql:
+          `not cf["SDK"] is null and createdDate > ${params.createdDateAfter.getTime()}`,
+        page: "0",
+        size: "999999",
+        sort: "created_date,DESC",
+      });
+    logger().debug({ msg: "Request", URL });
+    return fetch(URL, {
+      headers: this.commonHeaders(),
+    })
+      .then((x) => x.json() as Promise<Response>)
+      .then((x) => x.content)
+      .then((result) => {
+        logger().debug({ msg: "Found test cases", result });
+        return result;
+      });
   }
 
-  public async getTestCaseCustomFields(
+  public async getTestCaseOverview(
     id: number,
-  ): Promise<ApiTestCaseCustomFieldData[]> {
-    return cacheData(`cache/test-case-${id}.json`, () => {		
-     logger().debug({ msg: "Loading test case custom fields", id });
-      return fetch(`${this.baseUrl}/api/rs/testcase/${id}/cfv`, {
-        headers: this.commonHeaders(),
-      })
-       .then ((x) => {
-          if (x.status !== 200) {
-          logger().error({ msg: "Failed to load test case custom fields", id, status: x.status });
-        }
-          return x.text();
+  ): Promise<ApiTestCaseOverview> {
+    logger().debug({ msg: "Loading test case custom fields", id });
+
+    const result = await retry(
+      () =>
+        fetch(`${this.baseUrl}/api/rs/testcase/${id}/overview`, {
+          headers: this.commonHeaders(),
         })
-        .then((text) => {
-        try {
-          const json = JSON.parse(text); // Attempt to parse the text as JSON
-          logger().debug({ msg: "Test case custom fields", id, data: json });
-          return json;
-        } catch (error) {
-          logger().error({ msg: "Invalid JSON response", id, error: error.message });
-          return;
-        }
-      })
-       .then((x) => {
-        logger().debug({ msg: "Test case custom fields", id, data: x });
-         return x;
-       });
-    });
+          .then((x) => {
+            if (x.status !== 200) {
+              logger().error({
+                msg: "Failed to load test case custom fields",
+                id,
+                status: x.status,
+              });
+            }
+            return x.text();
+          })
+          .then((text) => {
+            try {
+              const json = JSON.parse(text) as ApiTestCaseOverview; // Attempt to parse the text as JSON
+              return json;
+            } catch (error) {
+              logger().error({
+                msg: "Invalid JSON response",
+                id,
+                error: error.message,
+              });
+              throw error;
+            }
+          }),
+      { maxTry: 3 },
+    );
+
+    return result;
   }
 
   private commonHeaders() {
@@ -117,20 +127,5 @@ export default class Api {
       Authorization: `Api-Token ${this.apiToken}`,
       "Content-Type": "application/json; charset=utf-8",
     });
-  }
-}
-
-async function cacheData<T>(file: string, fn: () => Promise<T>): Promise<T> {
-  if (!ENABLE_CACHE) return fn();
-
-  try {
-    const content = await Deno.readTextFile(file).then((x) => JSON.parse(x));
-    logger().debug({ msg: "Loaded cached", file });
-    return content;
-  } catch {
-    const data = await fn();
-    await Deno.writeTextFile(file, JSON.stringify(data));
-    logger().debug({ msg: "Written cache", file });
-    return data;
   }
 }

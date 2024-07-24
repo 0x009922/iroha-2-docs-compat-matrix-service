@@ -2,8 +2,8 @@ import Api from "./api.ts";
 import { getMatrix } from "./aggregate.ts";
 import * as web from "./web.ts";
 import { get as getConfig } from "./config.ts";
-import Agent from "./agent.ts";
-import { log, match, ms, P } from "../deps.ts";
+import { log, match, P } from "../deps.ts";
+import { useFreshData } from "./util.ts";
 
 const CONFIG = {
   apiToken: getConfig("ALLURE_API_TOKEN"),
@@ -41,22 +41,16 @@ const api = new Api({
   baseUrl: CONFIG.allureBaseUrl,
 });
 
-const agent = new Agent(async () => {
-  try {
-    log.info("Getting matrix");
-    const data = await getMatrix(api);
-    log.info("Getting matrix complete");
-    return data;
-  } catch (err) {
-    log.error("Getting matrix failed");
-    console.error(err);
-    throw err;
-  }
-}, ms("2h") as number);
+const { get: getMatrixWithCache } = useFreshData(async () => {
+  log.info("Getting matrix");
+  const data = await getMatrix(api);
+  log.info("Matrix is ready");
+  return data;
+});
 
 await web.run({
   port: CONFIG.port,
   provider: {
-    getMatrix: () => agent.get(),
+    getMatrix: getMatrixWithCache,
   },
 });

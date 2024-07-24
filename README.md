@@ -52,3 +52,10 @@ If needed remove deno.lock first
 ```bash
 deno cache --lock=deno.lock deps.ts
 ```
+
+## Prototyping
+
+There is [`allure_compat_matrix.livemd`](./allure_compat_matrix.livemd) - a
+[Livebook](https://livebook.dev/) notebook used for prototyping of the data
+flow. It can be used as a reference and as a tool for further updates. Please
+refer to the Livebook documentation on how to use it if you want.
