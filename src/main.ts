@@ -2,8 +2,7 @@ import Api from "./api.ts";
 import { getMatrix } from "./aggregate.ts";
 import * as web from "./web.ts";
 import { get as getConfig } from "./config.ts";
-import { log, match, P } from "../deps.ts";
-import { useFreshData } from "./util.ts";
+import { log, match, P, TTL } from "../deps.ts";
 
 const CONFIG = {
   apiToken: getConfig("ALLURE_API_TOKEN"),
@@ -41,16 +40,19 @@ const api = new Api({
   baseUrl: CONFIG.allureBaseUrl,
 });
 
-const { get: getMatrixWithCache } = useFreshData(async () => {
-  log.info("Getting matrix");
-  const data = await getMatrix(api);
-  log.info("Matrix is ready");
-  return data;
-});
+// expire in 5 minutes
+const ttl = new TTL<Matrix>(5 * 60_000);
 
 await web.run({
   port: CONFIG.port,
   provider: {
-    getMatrix: getMatrixWithCache,
+    getMatrix: async () => {
+      const existing = ttl.get("data");
+      if (existing) return existing;
+      log.info("Updating the matrix");
+      const fresh = await getMatrix(api);
+      ttl.set("data", fresh);
+      return fresh;
+    },
   },
 });
